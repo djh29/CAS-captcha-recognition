@@ -39,5 +39,4 @@ if __name__=='__main__':
     # pack('./data/train/')
     # pack('./data/test/')
     # unpack('CAS-captcha-master\data\\test.pkl')
-    pack('Neuronetwork_with_python-main1/small/')
 
