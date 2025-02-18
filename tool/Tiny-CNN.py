@@ -125,7 +125,7 @@ if __name__ == "__main__":
         transforms.Normalize(mean=[0.5], std=[0.5])
     ])
 
-    dataset = CaptchaDataset('Neuronetwork_with_python-main1/small', transform=transform)
+    dataset = CaptchaDataset('path to your data', transform=transform)
     dataloader = DataLoader(dataset, batch_size=256, shuffle=True)
 
     criterion = nn.CrossEntropyLoss()
