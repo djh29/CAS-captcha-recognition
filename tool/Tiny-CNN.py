@@ -85,53 +85,103 @@ class TinyCNN(nn.Module):
         return x.view(-1, self.num_chars, self.num_classes)
 
 # 4. 训练循环
-def train(epochs=300):
-    model.train()
+def train(model, train_dataloader, val_dataloader, epochs=300, save_threshold=0.9985):
+    model.train()  # 设置模型为训练模式
+    criterion = nn.CrossEntropyLoss()  # 定义损失函数
+    optimizer = optim.AdamW(model.parameters(), lr=3e-4, weight_decay=1e-4)  # 定义优化器
+    scheduler = torch.optim.lr_scheduler.OneCycleLR(
+        optimizer, max_lr=3e-3, steps_per_epoch=len(train_dataloader), epochs=epochs
+    )  # 定义学习率调度器
+
     for epoch in range(epochs):
         total_loss = 0
         correct = 0
         total = 0
-        
-        for inputs, labels in dataloader:
-            optimizer.zero_grad()
-            outputs = model(inputs)
-            
+
+        for inputs, labels in train_dataloader:
+            optimizer.zero_grad()  # 清空梯度
+            outputs = model(inputs)  # 前向传播
+
             # 计算四个字符的损失
-            loss = sum(criterion(outputs[:,i,:], labels[:,i]) for i in range(4))
-            loss.backward()
-            optimizer.step()
-            scheduler.step()
+            loss = sum(criterion(outputs[:, i, :], labels[:, i]) for i in range(4))
+            loss.backward()  # 反向传播
+            optimizer.step()  # 更新参数
+            scheduler.step()  # 更新学习率
+
             # 计算准确率
             _, predicted = torch.max(outputs, 2)
             correct += (predicted == labels).all(1).sum().item()
             total += labels.size(0)
             total_loss += loss.item()
-        
-            print(f"\rEpoch {epoch+1} ,Loss: {total_loss/total:.6f} ,LR: {optimizer.param_groups[0]['lr']:.6f},Acc: {correct/total:.4%}", end='')
-        print('')
-        acc = correct/total
-        if acc >0.9985:
-            # 5. 模型保存
-            torch.save(model.state_dict(), f'{acc}_light_captcha_model.pth')
+
+        # 打印训练信息
+        train_loss = total_loss / total
+        train_acc = correct / total
+        print(f"Epoch {epoch + 1}/{epochs}, Train Loss: {train_loss:.6f}, Train Acc: {train_acc:.4%}, LR: {optimizer.param_groups[0]['lr']:.6f}")
+
+        # 验证模型
+        val_loss, val_acc = validate(model, val_dataloader, criterion)
+        print(f"Epoch {epoch + 1}/{epochs}, Val Loss: {val_loss:.6f}, Val Acc: {val_acc:.4%}")
+
+        # 保存模型
+        if val_acc > save_threshold:
+            torch.save(model.state_dict(), f"{val_acc:.6f}_light_captcha_model.pth")
+            print(f"Model saved with validation accuracy: {val_acc:.4%}")
+
+
+# 5. 验证函数
+def validate(model, dataloader, criterion):
+    model.eval()  # 设置模型为评估模式
+    total_loss = 0
+    correct = 0
+    total = 0
+
+    with torch.no_grad():  # 关闭梯度计算
+        for inputs, labels in dataloader:
+            outputs = model(inputs)  # 前向传播
+
+            # 计算损失
+            loss = sum(criterion(outputs[:, i, :], labels[:, i]) for i in range(4))
+            total_loss += loss.item()
+
+            # 计算准确率
+            _, predicted = torch.max(outputs, 2)
+            correct += (predicted == labels).all(1).sum().item()
+            total += labels.size(0)
+
+    val_loss = total_loss / total
+    val_acc = correct / total
+    return val_loss, val_acc
 
 if __name__ == "__main__":
-    # 计算参数量
-    model = TinyCNN()
-    print("模型参数量：", sum(p.numel() for p in model.parameters()))  # 约98KB
+# 计算参数量
+model = TinyCNN()
+print("模型参数量：", sum(p.numel() for p in model.parameters()))  # 约802.6KB
 
-    # 3. 训练配置
-    transform = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.5], std=[0.5])
-    ])
+# 3. 训练配置
+transform = transforms.Compose([
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
+])
 
-    dataset = CaptchaDataset('path to your data', transform=transform)
-    dataloader = DataLoader(dataset, batch_size=256, shuffle=True)
+train_dataset = CaptchaDataset('path to your train data', transform=transform)
+train_dataloader = DataLoader(train_dataset, batch_size=256, shuffle=True)
+val_dataset = CaptchaDataset('path to your validate data', transform=transform)
+val_dataloader = DataLoader(val_dataset, batch_size=256, shuffle=True)
 
-    criterion = nn.CrossEntropyLoss()
-    optimizer = optim.AdamW(model.parameters(), lr=3e-4, weight_decay=1e-4)
-    scheduler = torch.optim.lr_scheduler.OneCycleLR(
-            optimizer, max_lr=3e-3, steps_per_epoch=len(dataloader), epochs=300)
-    # 启动训练
-    train()
+# 启动训练
+train(model,train_dataloader, val_dataloader, epochs=300, save_threshold=0.9985)
+
+#把模型转为onnx模型
+def convert_to_onnx(model, output_path):
+    dummy_input = torch.randn(1, 3, 32, 90)
+    torch.onnx.export(
+        model, 
+        dummy_input, 
+        output_path,
+        input_names=['input'], 
+        output_names=['output'],
+        dynamic_axes={'input': {0: 'batch_size'}, 
+                      'output': {0: 'batch_size'}}
+    )
 
