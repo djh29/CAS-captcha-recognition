@@ -111,6 +111,18 @@ try {
     // 启用提交按钮
     const submitBtn = document.getElementsByName('submit')[0];
     if (submitBtn) submitBtn.disabled = false;
+    if (autoSubmitEnabled){
+      const checkInputsAndSubmit = setInterval(() => {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const captchaValue = inputField.value;
+            if (username && password && captchaValue) {
+            console.log('自动点击');
+            submitBtn.click(); // 模拟点击提交按钮
+            clearInterval(checkInputsAndSubmit); // 清除定时器
+            }
+    }, 500); // 每500毫秒检查一次
+    }
 
 
 } catch (error) {
@@ -133,9 +145,9 @@ targetNode.addEventListener('click', () => {
   const submitBtn = document.getElementsByName('submit')[0];
     setTimeout(() => {
     recognizeCaptcha(targetNode);
-    if (autoSubmitEnabled){
-    submitBtn.click()
-    };
+    if (autoSubmitEnabled) {
+      submitBtn.click()
+    }
 }, 500);
 });
 }
