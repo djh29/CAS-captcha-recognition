@@ -110,12 +110,12 @@ def convert_to_onnx(model, output_path):
       
 # 初始化模型（需与训练架构完全一致）
 model = TinyCNN()  # 替换为实际使用的模型类
-model.load_state_dict(torch.load(r"D:\Documents\project\0.9997(3)_light_captcha_model.pth"))
+model.load_state_dict(torch.load(r"0.9997(3)_light_captcha_model.pth"))
 model.eval()
 convert_to_onnx(model,"cnn.onnx")
 
-# all_files = [f for f in os.listdir(r"D:\Documents\project\clean") if f.endswith(".jpg")]
+# all_files = [f for f in os.listdir(r"project\clean") if f.endswith(".jpg")]
 # for image in all_files:
-#     img=f"D:/Documents/project/clean/{image}"
+#     img=f"project/clean/{image}"
 #     result = predict(model,img)
 #     print(result)
